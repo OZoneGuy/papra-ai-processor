@@ -19,7 +19,8 @@ import (
 
 var ai_client openrouter.OpenRouter
 
-var API_KEY_HEADER string = fmt.Sprintf("Bearer %v", os.Getenv("PAPRA_API_KEY"))
+var PAPRA_AUTH_HEADER string = fmt.Sprintf("Bearer %v", os.Getenv("PAPRA_API_KEY"))
+var PAPRA_DOMAIN string = os.Getenv("PAPRA_DOMAIN")
 
 const SYSTEM_MESSAGE = `You are a document archiving assistant.
 
@@ -57,10 +58,32 @@ func getUserMessage(tags []string) string {
 }
 
 func main() {
+	fmt.Println("Starting up...")
+
+	OPENROUTER_API_KEY := os.Getenv("OPENROUTER_API_KEY")
+
+	// Checking the env vars
+	if OPENROUTER_API_KEY == "" {
+		fmt.Println("OPENROUTER_API_KEY not set")
+		os.Exit(1)
+		return
+	}
+
+	if PAPRA_AUTH_HEADER == "Bearer " {
+		fmt.Println("PAPRA_API_KEY is not set")
+		os.Exit(1)
+		return
+	}
+	if PAPRA_DOMAIN == "" {
+		fmt.Println("PAPRA_DOMAIN is not set")
+		os.Exit(1)
+		return
+	}
 
 	ai_client = *openrouter.New(
-		openrouter.WithSecurity(os.Getenv("OPENROUTER_API_KEY")),
+		openrouter.WithSecurity(OPENROUTER_API_KEY),
 	)
+
 	app := fiber.New()
 	app.Use(logger.New())
 	app.Post("/process-document", processDocument)
@@ -202,13 +225,13 @@ func processDocument(c fiber.Ctx) error {
 }
 
 func updateDocument(docId string, orgId string, new_params Resp) error {
-	updateDocUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v", os.Getenv("PAPRA_DOMAIN"), orgId, docId)
-	addTagUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/tags", os.Getenv("PAPRA_DOMAIN"), orgId, docId)
+	updateDocUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v", PAPRA_DOMAIN, orgId, docId)
+	addTagUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/tags", PAPRA_DOMAIN, orgId, docId)
 
 	updateRequestBody := fmt.Sprintf(`{"name":"%v","content":"%v","documentDate":"%v"}`, new_params.Name, new_params.Content, new_params.Date)
 
 	updateReq, err := http.NewRequest(http.MethodPatch, updateDocUrl, strings.NewReader(updateRequestBody))
-	updateReq.Header.Set("Authorization", API_KEY_HEADER)
+	updateReq.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 	updateReq.Header.Set("Content-type", "application/json")
 	if err != nil {
 		return err
@@ -222,7 +245,7 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 	for _, tagId := range new_params.Tags {
 		addTagBody := fmt.Sprintf(`{"tagId": "%v"}`, tagId)
 		updateTagsReq, err := http.NewRequest(http.MethodPost, addTagUrl, strings.NewReader(addTagBody))
-		updateTagsReq.Header.Set("Authorization", API_KEY_HEADER)
+		updateTagsReq.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 		updateTagsReq.Header.Set("Content-type", "application/json")
 		if err != nil {
 			return fmt.Errorf("Failed to create tag request: %w", err)
@@ -237,10 +260,10 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 
 	// Update the document expiry date
 	if new_params.ExpiryDate != nil && *new_params.ExpiryDate != "null" && *new_params.ExpiryDate != "" {
-		setExpiryDateUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/custom-properties/cpd_re5ufzny69rfe7pjn1v8mb2u", os.Getenv("PAPRA_DOMAIN"), orgId, docId)
+		setExpiryDateUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/custom-properties/cpd_re5ufzny69rfe7pjn1v8mb2u", PAPRA_DOMAIN, orgId, docId)
 		setExpiryDateBody := fmt.Sprintf(`{"value":"%v"}`, *new_params.ExpiryDate)
 		setExpiryDateReq, err := http.NewRequest(http.MethodPut, setExpiryDateUrl, strings.NewReader(setExpiryDateBody))
-		setExpiryDateReq.Header.Set("Authorization", API_KEY_HEADER)
+		setExpiryDateReq.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 		setExpiryDateReq.Header.Set("Content-type", "application/json")
 		setExpiryDateResp, err := client.Do(setExpiryDateReq)
 		if err != nil || setExpiryDateResp.StatusCode != 204 {
@@ -251,9 +274,9 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 	}
 
 	// Remove "To-Process" tag from the document
-	removeTagUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/tags/tag_p1dxu79tffeapj6uslmij4ts", os.Getenv("PAPRA_DOMAIN"), orgId, docId)
+	removeTagUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/tags/tag_p1dxu79tffeapj6uslmij4ts", PAPRA_DOMAIN, orgId, docId)
 	removeTagReq, err := http.NewRequest(http.MethodDelete, removeTagUrl, nil)
-	removeTagReq.Header.Set("Authorization", API_KEY_HEADER)
+	removeTagReq.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 	removeTagResp, err := client.Do(removeTagReq)
 	if err != nil || removeTagResp.StatusCode != 204 {
 		return fmt.Errorf("Failed to remove the process tag: %w", err)
@@ -277,9 +300,9 @@ type TagsResp struct {
 }
 
 func getTags(orgId string) ([]string, error) {
-	tagsUrl := fmt.Sprintf("%v/api/organizations/%v/tags", os.Getenv("PAPRA_DOMAIN"), orgId)
+	tagsUrl := fmt.Sprintf("%v/api/organizations/%v/tags", PAPRA_DOMAIN, orgId)
 	req, _ := http.NewRequest(http.MethodGet, tagsUrl, nil)
-	req.Header.Set("Authorization", API_KEY_HEADER)
+	req.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 	client := http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
@@ -324,9 +347,9 @@ type document struct {
 }
 
 func getDocument(docId string, orgId string) (*document, error) {
-	docUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v", os.Getenv("PAPRA_DOMAIN"), orgId, docId)
+	docUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v", PAPRA_DOMAIN, orgId, docId)
 	req, _ := http.NewRequest(http.MethodGet, docUrl, nil)
-	req.Header.Set("Authorization", API_KEY_HEADER)
+	req.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 	client := http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
@@ -346,9 +369,9 @@ func getDocument(docId string, orgId string) (*document, error) {
 		return nil, err
 	}
 
-	fileUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/file", os.Getenv("PAPRA_DOMAIN"), orgId, docId)
+	fileUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/file", PAPRA_DOMAIN, orgId, docId)
 	req, _ = http.NewRequest(http.MethodGet, fileUrl, nil)
-	req.Header.Set("Authorization", API_KEY_HEADER)
+	req.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 	res, err = client.Do(req)
 	if err != nil {
 		fmt.Printf("Failed to get the document file: %v\n", err)
