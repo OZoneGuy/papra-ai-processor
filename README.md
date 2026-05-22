@@ -1,3 +1,5 @@
+<img title="Logo" src="./assets/logo.png" alt="logo.png">
+
 # Papra AI Processor
 
 A Go microservice that processes documents from [Papra](https://papra.app) using AI. When documents are uploaded or tagged in Papra, this service extracts metadata (content, name, tags, dates) using OpenRouter's AI models and updates the documents automatically.
@@ -90,3 +92,7 @@ Receives webhook events from Papra and processes documents.
 ├── Dockerfile       # Docker image definition
 └── .dockerignore    # Docker build exclusions
 ```
+
+## AI Disclaimer
+
+Only the README and the logo were AI generated. The rest of this project is grass-fed organic code.
