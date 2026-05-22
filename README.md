@@ -1,4 +1,4 @@
-<img title="Logo" src="./assets/logo.png" alt="logo.png">
+<img title="Logo" src="./assets/logo.png" alt="logo.png" style="display:block;margin-left:auto;margin-right:auto;width:25%">
 
 # Papra AI Processor
 
