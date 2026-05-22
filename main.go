@@ -32,25 +32,24 @@ Return only valid JSON:
   "name": "string",
   "tags": ["string"],
   "suggestedTags": ["string"]
-  "date": "Date",
+  "date": "Date", // nullable
   "exp_date": "Date" // nullable
 }
 
 Rules:
 - Extract the document text accurately for indexing/search.
-- Extract the document date
+- Extract the document date, if present
 - Extract the document expiry date, if applicable
+- Never use the string value "null" for null values. Omit the field if it is null instead
 - The Dates must be parseable using Node.js Date
 - Keep extracted text in its original language. Do not translate, summarize, or invent content.
+- Format the content in markdown
 - Preserve key details: names, dates, amounts, IDs, addresses, organizations, invoice/certificate numbers.
 - Use [unreadable] for unreadable text.
 - Create a short, natural English name, without file extension.
 - The name must not contain: / \ : * ? " < > |
 - "tags" must contain only IDs from the provided tag list. Do not invent IDs.
 - Use existing tags when appropriate.
-- Only suggest new tags if no existing tag applies.
-- Suggested tags must be generic and reusable.
-- If tags is not empty, suggestedTags must be [].
 - Output JSON only. No Markdown, comments, explanations, or trailing commas.`
 
 func getUserMessage(tags []string) string {
@@ -175,12 +174,12 @@ func processDocument(c fiber.Ctx) error {
 								"type": "string",
 							},
 						},
-						"suggestedTags": map[string]any{
-							"type": "array",
-							"items": map[string]any{
-								"type": "string",
-							},
-						},
+						// "suggestedTags": map[string]any{
+						// 	"type": "array",
+						// 	"items": map[string]any{
+						// 		"type": "string",
+						// 	},
+						// },
 						"date": map[string]any{
 							"type": "string",
 						},
@@ -188,7 +187,7 @@ func processDocument(c fiber.Ctx) error {
 							"type": "string",
 						},
 					},
-					"required":             []string{"content", "name", "tags", "date"},
+					"required":             []string{"content", "name", "tags"},
 					"additionalProperties": false,
 				},
 				Strict: optionalnullable.OptionalNullable[bool]{true: new(true)},
