@@ -233,8 +233,14 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 	updateDocUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v", PAPRA_DOMAIN, orgId, docId)
 	addTagUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/tags", PAPRA_DOMAIN, orgId, docId)
 
-	updateRequestBody := fmt.Sprintf(`{"name":"%v","content":"%v","documentDate":"%v"}`, new_params.Name, new_params.Content, new_params.Date)
+	var updateRequestBody string
+	if new_params.Date == "" {
+		updateRequestBody = fmt.Sprintf(`{"name":"%v","content":"%v"}`, new_params.Name, strings.ReplaceAll(new_params.Content, "\n", "\\n"))
+	} else {
+		updateRequestBody = fmt.Sprintf(`{"name":"%v","content":"%v","documentDate":"%v"}`, new_params.Name, strings.ReplaceAll(new_params.Content, "\n", "\\n"), new_params.Date)
+	}
 
+	fmt.Printf("Update request body: %v\n", updateRequestBody)
 	updateReq, err := http.NewRequest(http.MethodPatch, updateDocUrl, strings.NewReader(updateRequestBody))
 	updateReq.Header.Set("Authorization", PAPRA_AUTH_HEADER)
 	updateReq.Header.Set("Content-type", "application/json")
