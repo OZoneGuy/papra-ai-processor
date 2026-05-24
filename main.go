@@ -102,6 +102,7 @@ type papraEvent struct {
 // TODO: Filter based on the triggering action
 // TODO: Come up with the filters based on the actions
 func processDocument(c fiber.Ctx) error {
+	fmt.Printf("Processing document...")
 	papraEvent := papraEvent{}
 	err := json.Unmarshal(c.Body(), &papraEvent)
 	if err != nil {
@@ -109,20 +110,23 @@ func processDocument(c fiber.Ctx) error {
 		return c.Status(500).SendString("Failed to process body")
 	}
 	if (papraEvent.Event != "document:tag:added" || *papraEvent.Data.TagName != "To-Process") && papraEvent.Event != "document:created" {
-		fmt.Printf("event: %v, %v, %v\n", *papraEvent.Data.TagName, papraEvent, *papraEvent.Data.TagName == "To-Process")
+		fmt.Printf("Unsupported trigger, skippng document...:\nEvent: %v\nTag: %v\n", papraEvent.Event, papraEvent.Data.TagName)
 		return c.Status(200).SendString("Nothing to do")
 	}
 
 	doc, err := getDocument(papraEvent.Data.DocumentId, papraEvent.Data.OrgId)
 	if err != nil {
-		fmt.Printf("Failed to get document: %v", err)
+		fmt.Printf("Failed to get document: %v\n", err)
 		return c.Status(500).SendString("Failed to get document")
 	}
+	fmt.Println("Retrieved document")
 
 	tags, err := getTags(doc.orgId)
 	if err != nil {
+		fmt.Println("Failed to retrieve tags")
 		return c.Status(500).SendString("Failed to get tags")
 	}
+	fmt.Println("Retrieved tags")
 
 	resp, err := ai_client.Chat.Send(c.Context(), components.ChatRequest{
 		Messages: []components.ChatMessages{
@@ -205,6 +209,7 @@ func processDocument(c fiber.Ctx) error {
 		fmt.Printf("No response was found")
 		return c.Status(500).SendString("No LLM response found")
 	}
+	fmt.Println("Recieved AI response")
 	s := result.Str
 
 	llm_resp := Resp{}
@@ -214,6 +219,7 @@ func processDocument(c fiber.Ctx) error {
 		return err
 	}
 
+	fmt.Println("Updating document...")
 	err = updateDocument(doc.documentId, doc.orgId, llm_resp)
 	if err != nil {
 		fmt.Printf("Failed to update the document: %v", err)
@@ -238,6 +244,8 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 	client := http.Client{}
 	resp, err := client.Do(updateReq)
 	if err != nil || resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("Failed to update document:\nerror: %v\nResponse: %v\n", err, string(body))
 		return fmt.Errorf("Failed to update document: %w", err)
 	}
 
@@ -252,8 +260,8 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 		createTagResp, err := client.Do(updateTagsReq)
 		if err != nil || (createTagResp.StatusCode != 204 && createTagResp.StatusCode != 409) {
 			b, _ := io.ReadAll(createTagResp.Body)
-			fmt.Printf("resp: %v", string(b))
-			return fmt.Errorf("Failed to add tag: %w", err)
+			fmt.Printf("Failed to update tag:\nError: %v\nResponse: %v\n", err, string(b))
+			return fmt.Errorf("Failed to add tag: %w\n", err)
 		}
 	}
 
@@ -267,7 +275,7 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 		setExpiryDateResp, err := client.Do(setExpiryDateReq)
 		if err != nil || setExpiryDateResp.StatusCode != 204 {
 			resp_body, err := io.ReadAll(setExpiryDateResp.Body)
-			fmt.Printf("Failure message: %v\n%v\n%v\n", string(resp_body), *new_params.ExpiryDate, new_params)
+			fmt.Printf("Failed to se expiry date:\nError: %v\nResponse: %v\nExpiry Date: %v\n", err, string(resp_body), *new_params.ExpiryDate)
 			return fmt.Errorf("Failed to set the expiry date: %w", err)
 		}
 	}
