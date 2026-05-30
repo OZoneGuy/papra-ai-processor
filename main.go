@@ -87,7 +87,11 @@ func main() {
 	app.Use(logger.New())
 	app.Post("/process-document", processDocument)
 
-	app.Listen(":3000")
+	res := app.Listen(":3000")
+	if res != nil {
+		fmt.Printf("Exited with error: %v\n", res)
+		os.Exit(1)
+	}
 }
 
 type papraEvent struct {
