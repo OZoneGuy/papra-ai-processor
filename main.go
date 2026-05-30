@@ -15,6 +15,7 @@ import (
 	"github.com/OpenRouterTeam/go-sdk/optionalnullable"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/ryugenxd/docx2pdf"
 )
 
 var ai_client openrouter.OpenRouter
@@ -232,6 +233,37 @@ func processDocument(c fiber.Ctx) error {
 	return c.Status(200).SendString("Accepted")
 }
 
+func convertPdf(docxContent []byte) ([]byte, error) {
+	tmpDocx, err := os.CreateTemp("", "input_doc")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create docx temp file", err)
+	}
+	defer os.Remove(tmpDocx.Name())
+	_, err = tmpDocx.Write(docxContent)
+	if err != nil {
+		tmpDocx.Close()
+		return nil, fmt.Errorf("Failed to write docx document: %w", err)
+	}
+	tmpDocx.Close()
+	tmpPdf, err := os.CreateTemp("", "out.pdf")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create pdf temp file: %w", err)
+	}
+	defer os.Remove(tmpPdf.Name())
+	tmpPdf.Close()
+	err = docx2pdf.ConvertFile(tmpDocx.Name(), tmpPdf.Name())
+	tmpPdf, err = os.Open(tmpPdf.Name())
+	if err != nil {
+		return nil, fmt.Errorf("Failed to reopen PDF file: %w", err)
+	}
+	defer tmpPdf.Close()
+	content, err := io.ReadAll(tmpPdf)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read PDF: %w", err)
+	}
+	return content, nil
+}
+
 func updateDocument(docId string, orgId string, new_params Resp) error {
 	updateDocUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v", PAPRA_DOMAIN, orgId, docId)
 	addTagUrl := fmt.Sprintf("%v/api/organizations/%v/documents/%v/tags", PAPRA_DOMAIN, orgId, docId)
@@ -396,6 +428,15 @@ func getDocument(docId string, orgId string) (*document, error) {
 	if err != nil {
 		fmt.Printf("Failed to write to file: %v\n", err)
 		return nil, err
+	}
+
+	// DOCX, convert it to PDf
+	if docResp.Document.MimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
+		fileBody, err = convertPdf(fileBody)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to convert DOCX to PDF: %w", err)
+		}
+		docResp.Document.MimeType = "application/pdf"
 	}
 
 	return &document{
