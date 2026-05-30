@@ -272,7 +272,7 @@ func updateDocument(docId string, orgId string, new_params Resp) error {
 	if new_params.Date == nil || *new_params.Date == "" {
 		updateRequestBody = fmt.Sprintf(`{"name":"%v","content":"%v"}`, new_params.Name, strings.ReplaceAll(new_params.Content, "\n", "\\n"))
 	} else {
-		updateRequestBody = fmt.Sprintf(`{"name":"%v","content":"%v","documentDate":"%v"}`, new_params.Name, strings.ReplaceAll(new_params.Content, "\n", "\\n"), new_params.Date)
+		updateRequestBody = fmt.Sprintf(`{"name":"%v","content":"%v","documentDate":"%v"}`, new_params.Name, strings.ReplaceAll(new_params.Content, "\n", "\\n"), *new_params.Date)
 	}
 
 	fmt.Printf("Update request body: %v\n", updateRequestBody)
