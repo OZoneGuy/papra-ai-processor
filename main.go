@@ -31,7 +31,6 @@ Return only valid JSON:
   "content": "string",
   "name": "string",
   "tags": ["string"],
-  "suggestedTags": ["string"]
   "date": "Date", // nullable
   "exp_date": "Date" // nullable
 }
