@@ -215,7 +215,7 @@ func processDocument(c fiber.Ctx) error {
 	llm_resp := Resp{}
 	err = json.Unmarshal([]byte(*s), &llm_resp)
 	if err != nil {
-		fmt.Printf("Unable to parse LLM response: %v\n%v\n", s, err)
+		fmt.Printf("Unable to parse LLM response: %v\n%v\n", *s, err)
 		return err
 	}
 
@@ -301,7 +301,7 @@ type Resp struct {
 	Content    string   `json:"content"`
 	Name       string   `json:"name"`
 	Tags       []string `json:"tags"`
-	Date       string   `json:"date"`
+	Date       *string  `json:"date"`
 	ExpiryDate *string  `json:"exp_date"`
 }
 
